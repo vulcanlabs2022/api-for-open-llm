@@ -15,6 +15,7 @@ from transformers.generation.logits_process import (
 
 from api.constants import ErrorCode
 from api.prompt_adapter import get_prompt_adapter
+from loguru import logger
 
 server_error_msg = (
     "**NETWORK ERROR DUE TO HIGH TRAFFIC. PLEASE REGENERATE OR REFRESH THIS PAGE.**"
@@ -166,17 +167,23 @@ def generate_stream(
     logits_processor = prepare_logits_processor(
         temperature, repetition_penalty, top_p, top_k
     )
-
+    logger.debug(f"model config {model.config}")
     input_ids = tokenizer(prompt).input_ids
+    logger.debug(f"context len {context_len}")
+    logger.debug(f"max_new_tokens {max_new_tokens}")
+    logger.debug(f"input id length {len(input_ids)}")
 
     if model.config.is_encoder_decoder:
         max_src_len = context_len
     else:  # truncate
         max_src_len = context_len - max_new_tokens - 1
+    logger.debug(f"max_src_len {max_src_len}")
 
     input_ids = input_ids[-max_src_len:]
     output_ids = list(input_ids)
     input_echo_len = len(input_ids)
+    
+    logger.debug(f"input_echo_len {input_echo_len}")
 
     if model.config.is_encoder_decoder:
         encoder_output = model.encoder(
@@ -192,6 +199,8 @@ def generate_stream(
     sent_interrupt = False
     first_tokens = None
     for i in range(max_new_tokens):
+        if i % 100 == 0:
+            logger.debug(f"token count {i}")
         if i == 0:  # prefill
             if model.config.is_encoder_decoder:
                 out = model.decoder(
