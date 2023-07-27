@@ -63,12 +63,14 @@ def generate_stream_chatglm(
     prompt = params["prompt"]
     temperature = float(params.get("temperature", 1.0))
     repetition_penalty = float(params.get("repetition_penalty", 1.0))
-    top_p = float(params.get("top_p", 1.0))
+    top_p = float(params.get("top_p", 0.9))
     max_new_tokens = int(params.get("max_new_tokens", 256))
     echo = params.get("echo", True)
 
     inputs = tokenizer([prompt], return_tensors="pt").to(model.device)
     input_echo_len = len(inputs["input_ids"][0])
+    
+    logger.debug(f"==== prompt ====\n{prompt}")
 
     gen_kwargs = {
         "max_length": max_new_tokens + input_echo_len,
@@ -156,7 +158,7 @@ def generate_stream(
     len_prompt = len(prompt)
     temperature = float(params.get("temperature", 1.0))
     repetition_penalty = float(params.get("repetition_penalty", 1.0))
-    top_p = float(params.get("top_p", 1.0))
+    top_p = float(params.get("top_p", 0.9))
     top_k = int(params.get("top_k", -1))  # -1 means disable
     max_new_tokens = int(params.get("max_new_tokens", 256))
     echo = bool(params.get("echo", True))
@@ -164,6 +166,8 @@ def generate_stream(
     stop_token_ids = params.get("stop_token_ids", None) or []
     stop_token_ids.append(tokenizer.eos_token_id)
 
+    logger.debug(f"==== prompt ====\n{prompt}")
+    
     logits_processor = prepare_logits_processor(
         temperature, repetition_penalty, top_p, top_k
     )
