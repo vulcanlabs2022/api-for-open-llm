@@ -273,6 +273,29 @@ async def tokenizer_encode(request:EncodeRequest):
         tokens=model_server.tokenizer(request.prompt).input_ids,
     )
 
+@app.post("/v1/embeddings/tokenizer_encode")
+async def embeddings_tokenizer_encode(request:EncodeRequest):
+    if embed_client is not None:
+        tokens=embed_client.tokenizer(request.prompt).input_ids
+    else:
+        tokens=model_server.tokenizer(request.prompt).input_ids
+    return EncodeResponse(
+        prompt=request.prompt,
+        model=request.model,
+        tokens=tokens,
+    )
+
+@app.post("/v1/embeddings/tokenizer_decode")
+async def embeddings_tokenizer_decode(request:DecodeRequest):
+    if embed_client is not None:
+        prompt=embed_client.tokenizer.decode(request.tokens)
+    else:
+        prompt=model_server.tokenizer.decode(request.tokens)
+    
+    return DecodeResponse(
+        prompt=prompt,
+        model=request.model
+    )
 
 @app.post("/v1/chat/completions")
 async def create_chat_completion(request: ChatCompletionRequest):
