@@ -270,7 +270,7 @@ async def tokenizer_encode(request:EncodeRequest):
     return EncodeResponse(
         prompt=request.prompt,
         model=request.model,
-        token=model_server.tokenizer(request.prompt).input_ids,
+        tokens=model_server.tokenizer(request.prompt).input_ids,
     )
 
 
