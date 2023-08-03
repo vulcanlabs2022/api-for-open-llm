@@ -451,8 +451,10 @@ async def create_embeddings(request: EmbeddingsRequest, model_name: str = None):
 
         if not args.embedding_name:
             embedding = model_server.get_embeddings(payload)
+            logger.info("use model server embedding")
         else:
             embedding = model_server.get_other_embeddings(embed_client, payload)
+            logger.info(f"use embed_client {args.embedding_name}")
 
         data += [
             {
