@@ -10,10 +10,10 @@ old_init = transformers.models.llama.modeling_llama.LlamaRotaryEmbedding.__init_
 def adaptive_ntk_init(self, dim, max_position_embeddings=2048, base=10000, device=None):
     self.dim = dim
     self.alpha = ALPHA
-    if isinstance(ALPHA, (float, int)):
-        base = base * ALPHA ** (dim / (dim - 2))
+    if isinstance(ALPHA,(float,int)):
+        base = base * ALPHA ** (dim / (dim-2))
         self.base = base
-    elif ALPHA == 'auto':
+    elif ALPHA=='auto':
         self.base = base
     else:
         raise ValueError(ALPHA)
@@ -24,7 +24,7 @@ def adaptive_ntk_init(self, dim, max_position_embeddings=2048, base=10000, devic
 
 def adaptive_ntk_forward(self, x, seq_len=None):
     if seq_len > self.max_seq_len_cached:
-        if isinstance(self.alpha, (float, int)):
+        if isinstance(self.alpha,(float,int)):
             self.max_seq_len_cached = seq_len
             t = torch.arange(seq_len, device=x.device, dtype=self.ntk_inv_freq.dtype)
             freqs = torch.einsum("i,j->ij", t, self.ntk_inv_freq)
@@ -35,12 +35,12 @@ def adaptive_ntk_forward(self, x, seq_len=None):
                 self.cos_cached[:, :, :seq_len, ...].to(dtype=x.dtype),
                 self.sin_cached[:, :, :seq_len, ...].to(dtype=x.dtype),
             )
-        elif self.alpha == 'auto':
+        elif self.alpha=='auto':
             t = torch.arange(seq_len, device=x.device, dtype=self.ntk_inv_freq.dtype)
             dim = self.dim
             alpha = (seq_len / 1024 - 1) * 1.1
-            base = self.base * alpha ** (dim / (dim - 2))
-            ntk_inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float().to(x.device) / dim))
+            base = self.base * alpha ** (dim / (dim-2))
+            ntk_inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float().to(x.device) / dim ))
 
             freqs = torch.einsum("i,j->ij", t, ntk_inv_freq)
             emb = torch.cat((freqs, freqs), dim=-1).to(x.device)
