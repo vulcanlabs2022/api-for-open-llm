@@ -55,6 +55,22 @@ class UsageInfo(BaseModel):
     completion_tokens: Optional[int] = 0
     first_tokens: Optional[Any] = None
 
+class EncodeRequest(BaseModel):
+    prompt: str
+    model: str
+
+class EncodeResponse(BaseModel):
+    prompt: str
+    model: str
+    tokens: list[int]
+    
+class DecodeRequest(BaseModel):
+    tokens: list[int]
+    model: str
+
+class DecodeResponse(BaseModel):
+    prompt: str
+    model: str
 
 class ChatCompletionRequest(BaseModel):
     model: str

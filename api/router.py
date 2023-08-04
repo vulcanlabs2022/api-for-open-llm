@@ -36,6 +36,10 @@ from api.protocol import (
     EmbeddingsResponse,
     EmbeddingsRequest,
     FunctionCallResponse,
+    EncodeRequest,
+    EncodeResponse,
+    DecodeRequest,
+    DecodeResponse,
 )
 from api.react_prompt import get_qwen_react_prompt
 
@@ -253,6 +257,21 @@ async def show_available_models():
     for m in model_list:
         model_cards.append(ModelCard(id=m, root=m, permission=[ModelPermission()]))
     return ModelList(data=model_cards)
+
+@app.post("/v1/tokenizer_decode")
+async def tokenizer_decode(request:DecodeRequest):
+    return DecodeResponse(
+        prompt=model_server.tokenizer.decode(request.tokens),
+        model=request.model
+    )
+
+@app.post("/v1/tokenizer_encode")
+async def tokenizer_encode(request:EncodeRequest):
+    return EncodeResponse(
+        prompt=request.prompt,
+        model=request.model,
+        token=model_server.tokenizer(request.prompt).input_ids,
+    )
 
 
 @app.post("/v1/chat/completions")
