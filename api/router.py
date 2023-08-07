@@ -41,7 +41,7 @@ from api.protocol import (
     DecodeRequest,
     DecodeResponse,
 )
-from api.react_prompt import get_qwen_react_prompt
+from api.react_prompt import get_qwen_react_prompt, parse_qwen_plugin_call
 
 app = FastAPI()
 headers = {"User-Agent": "Chat API Server"}
@@ -129,13 +129,18 @@ def get_gen_params(
     }
 
     if model_server.stop is not None:
-        gen_params["stop"] = model_server.stop
+        if "token_ids" in model_server.stop:
+            gen_params["stop_token_ids"] = model_server.stop["token_ids"]
+
+        if "strings" in model_server.stop:
+            gen_params["stop"] = model_server.stop["strings"]
 
     if stop is not None:
         if isinstance(stop, str):
             stop = [stop]
 
         gen_params["stop"] = gen_params["stop"] + stop if "stop" in gen_params else stop
+        gen_params["stop"] = list(set(gen_params["stop"]))
 
     logger.debug(f"==== request ====\n{gen_params}")
     return gen_params
@@ -330,22 +335,43 @@ async def create_chat_completion(request: ChatCompletionRequest):
         if content["error_code"] != 0:
             return create_error_response(content["error_code"], content["text"])
 
-        if request.messages[-1]["role"] == "user" and request.functions is not None:
+        if request.functions is not None:
             react_content = content["text"].strip()
-            thought_index = react_content.index("Thought:")
-            name_index, arguments_index = react_content.index("Action:"), react_content.index("Action Input:")
-            function_call = FunctionCallResponse(
-                name=react_content[name_index + 8: arguments_index].strip(),
-                arguments=react_content[arguments_index + 14:],
-                thought=react_content[thought_index + 9: name_index]
-            )
-            choices.append(
-                ChatCompletionResponseChoice(
-                    index=i,
-                    message=ChatMessage(role="assistant", function_call=function_call),
-                    finish_reason="function_call",
+            if "Thought:" in react_content:
+                react_res = parse_qwen_plugin_call(react_content)
+                if react_res is not None:
+                    # if plugin_name contains other str
+                    available_functions = [f["name_for_model"] for f in request.functions]
+                    plugin_name = react_res[1]
+                    if plugin_name not in available_functions:
+                        for fct in available_functions:
+                            if fct in plugin_name:
+                                plugin_name = fct
+                                break
+
+                    function_call = FunctionCallResponse(
+                        thought=react_res[0],
+                        name=plugin_name,
+                        arguments=react_res[2],
+                    )
+                else:
+                    function_call = None
+                choices.append(
+                    ChatCompletionResponseChoice(
+                        index=i,
+                        message=ChatMessage(role="assistant", function_call=function_call),
+                        finish_reason="function_call",
+                    )
                 )
-            )
+            else:
+                logger.warning(f"Model {args.model_name.lower()} does not support for function call yet!")
+                choices.append(
+                    ChatCompletionResponseChoice(
+                        index=i,
+                        message=ChatMessage(role="assistant", content=react_content),
+                        finish_reason=content.get("finish_reason", "stop"),
+                    )
+                )
         else:
             choices.append(
                 ChatCompletionResponseChoice(
@@ -519,7 +545,7 @@ def main(args1):
     global embed_client
     embed_client = None
     if args.embedding_name:
-        # launch a embedding server
+        # launch an embedding server
         embed_client = SentenceTransformer(args.embedding_name, device=args.device)
 
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
